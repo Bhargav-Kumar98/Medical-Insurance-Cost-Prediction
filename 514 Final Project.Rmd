@@ -1,0 +1,491 @@
+---
+title: "514 Final Project"
+author: "FinalProject_Group15"
+date: "2023-11-30"
+output: html_document
+---
+## Setup and Import of Libraries
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r message=FALSE}
+library(tidyverse) 
+library(ggplot2) 
+library(dplyr)
+library(tigerstats)
+#install.packages('MLmetrics')
+library(MLmetrics)
+#install.packages("Metrics")
+library(Metrics)
+library(MASS)
+```
+
+## Part I: Data Preparation
+
+### Loading data into "MedicalCostPersonal" dataframe
+
+```{r}
+medicalCostPersonal <- read.csv("C:/Users/bharg/OneDrive/Desktop/ITM Assignments/Prog For DA/Final Project/insurance.csv")
+```
+
+### First 6 rows of the medicalCostPersonal dataframe
+
+```{r}
+head(medicalCostPersonal)
+```
+
+### A summary of the distribution of data in each of the variables of medicalCostPersonal dataset
+
+```{r}
+summary(medicalCostPersonal)
+```
+
+### Structure of Dataset
+```{r}
+str(medicalCostPersonal)
+
+```
+> We can observe from above output that there are 1338 observations (Rows) of 7  variables (Columns) in the dataset.</br>
+The bmi and charges are numerical variables.</br>
+age and children are discrete variable as it takes on whole number values.</br>
+sex, smoker and region are categorical variables.
+
+
+## Checking for anomalies in the dataset
+### Missing Values
+```{r}
+missing_values <- colSums(is.na(medicalCostPersonal))
+missing_values
+```
+> No missing values found in the dataset
+
+### Analyzing Sex Attribute
+```{r}
+distinct_sex_values <- unique(medicalCostPersonal$sex)
+distinct_sex_values
+```
+> No abnormal entries in the sex attribute of the dataset. 
+
+### Analyzing Smoker Attribute
+```{r}
+distinct_smoke_values <- unique(medicalCostPersonal$smoker)
+distinct_smoke_values
+```
+> No abnormal entries in the smoker attribute of the dataset.
+
+### Analyzing Region Attribute
+```{r}
+distinct_region_values <- unique(medicalCostPersonal$region)
+distinct_region_values
+```
+> No abnormal entries in the region attribute of the dataset.
+
+### Analyzing for duplicate rows
+```{r}
+duplicate_rows <- duplicated(medicalCostPersonal)
+duplicate_entry <- medicalCostPersonal[duplicate_rows, ]
+duplicate_entry
+```
+> Record no 582 found to be a duplicate entry.
+
+### Eliminating duplicate record and inserting into a new dataframe
+```{r}
+MCPclean <- medicalCostPersonal[!duplicate_rows,]
+total_in_medicalCostPersonal  <- nrow(medicalCostPersonal)
+total_in_MCPclean  <- nrow(MCPclean)
+```
+
+> The total records in medicalCostPersonal dataset is `r total_in_medicalCostPersonal`. </br>
+> The total records in MCPclean dataset is `r total_in_MCPclean`.
+
+```{r}
+duplicate_rows_count <- sum(duplicated(MCPclean))
+duplicate_rows_count
+```
+
+> Hence, a new dataframe named 'MCPclean' has been created by eliminating the duplicate records from the original database.
+
+## Part II: Data Exploration(EDA)
+
+### Sex Distribution
+```{r}
+ggplot(data = MCPclean) + geom_bar(mapping = aes(x = sex), fill = "Brown")
+```
+</br>
+
+> The distribution of Male and Female genders in the dataset is approximately equal.
+
+### Smoker Distribution
+```{r}
+ggplot(data = MCPclean) + geom_bar(mapping = aes(x = smoker), fill = "skyblue")
+```
+</br>
+
+> The ratio of smokers : non-smokers = 1:4 in the dataset
+
+### Region Distribution
+```{r}
+ggplot(data = MCPclean) + geom_bar(mapping = aes(x = region), fill = "purple")
+```
+</br>
+
+> All the 4 regions are approximately equally and fairly distributed in the dataset. 
+
+### Children Distribution
+```{r}
+ggplot(data = MCPclean) + geom_bar(mapping = aes(x = children), fill = "Orange")
+```
+</br>
+
+> The graph shows a clear trend, with a large number of people having no children, followed by a progressive reduction as the number of children grows, resulting in a significant drop for those with four or five children.
+
+### Age Distribution
+```{r}
+ggplot(data = MCPclean) + geom_histogram(mapping = aes(x = age),bins =10, fill = "violet")
+```
+</br>
+
+> Individuals across all age groups have been fairly represented in the dataset, with peaks and troughs at extreme age groups.
+
+### Charges Distribution
+
+```{r}
+ggplot(data = MCPclean) + geom_histogram(mapping = aes(x = charges),bins =30, fill = "red")
+```
+</br>
+
+> Most of the individuals in the dataset incur charges less than 20,000.
+
+### BMI Distribution
+```{r}
+ggplot(data = MCPclean) + geom_histogram(mapping = aes(x = bmi),bins =10, fill = "green")
+```
+</br>
+
+> The graph is approximately normally distributed, However, in extreme scenario it can be considered slightly skewed towards the right side. </br>
+> Let's analyze it further.
+
+### Analyzing if the BMI attribute is normally distributed using 'Boxplot'.
+
+
+```{r}
+boxplot(MCPclean$bmi, horizontal = TRUE, main = "Box Plot of BMI", xlab = "BMI")
+```
+
+
+</br>
+
+> After removing the outliers, It is evident from the above Boxplot, that the BMI data is in fact Normally Distributed for all practical purposes.
+
+### Compare medical changes based on gender and smoking status
+
+```{r}
+
+ggplot(MCPclean, aes(x = sex, y = charges, fill = smoker)) +
+  geom_boxplot() +
+  labs(title = "Boxplot of Charges by Gender and Smoking Status",
+       x = "Sex",
+       y = "Charges",
+       fill = "Smoker")
+
+```
+
+</br>
+> It is evident from the above analysis that medical charges are gender neutral as both male and female non-smokers have a similar distribution of charges. 
+Likewise, smokers from both genders have their medical bills on the higher side.
+
+### Comparing the medical charges of smokers with non-smokers
+
+```{r}
+
+ggplot(MCPclean, aes(x = charges, fill = smoker)) +
+  geom_histogram(alpha = 0.5, bins = 30, position = "identity") +
+  labs(title = "Overlay Histogram of Charges by Smoker",
+       x = "Charges",
+       y = "Frequency",
+       fill = "Smoker")
+```
+</br>
+
+> It is clearly evident from the above graph that smokers tend to incur higher medical bills compared to non-smokers. 
+Hence, it can be inferred that smoking adversely affects an individuals health and translates to higher medical costs.
+
+```{r}
+ggplot(data = MCPclean, aes(x = age)) + geom_histogram(aes(fill = smoker),bins = 30, color = "black", position = "fill")
+```
+### Analyzing the relation between medical charges and age
+
+```{r}
+ggplot(data = MCPclean) + geom_point(mapping = aes(x = age, y = charges,colour = smoker))
+
+```
+
+</br>
+
+> Distinct trend lines can be observed upon plotting the age against charges. As the age increases, the medical charges also increases correspondingly.
+This is true for both smokers and non-smokers as separate trend lines for both categories of people can be observed. 
+
+```{r}
+ggplot(data = MCPclean) + geom_point(mapping = aes(x = bmi, y = charges,colour = smoker))
+```
+</br>
+
+> From the above analysis, it can be deduced that rising bmi coupled smoking habits, generally contribute to higher medical charges. 
+If any of the two contributing factors is negative i.e. bmi is close to the healthy range (18 to 25) or the individual is non-smoker, 
+it corresponds to lower medical charges.
+
+### Analyzing the distribution of smokers and non-smokers across the 4 regions
+
+```{r}
+ggplot(data = MCPclean) + geom_count(mapping = aes(x = region, y = smoker))
+```
+</br>
+
+> Non-smokers are fairly and equally distributed across all the 4 regions. 
+However, upon comparative analysis, the smoking population is higher in the southeast region compared to the other regions.
+
+
+## Part III: Data Analysis
+
+### a) Hypothesis Testing
+
+#### Comparing the variance of the medical charges of the smoking population with the non-smoking population
+
+The hypothesis test for comparing the variance can be constricted as follows: </br>
+H0: variance of charges for smokers = variance of charges for non-smokers </br>
+H1: variance of charges for smokers != variance of charges for non-smokers </br>
+
+#### Determining the mean and standard deviation of the charges
+
+```{r}
+mean(MCPclean$charges)
+sd(MCPclean$charges)
+```
+> The mean of all the charges in the dataset is 13279 with a standard deviation of 12110
+
+#### Creating separate data frames for smokers and non smokers for comparing their variance
+```{r}
+smokers_charges <- MCPclean$charges[MCPclean$smoker == "yes"]
+non_smokers_charges <- MCPclean$charges[MCPclean$smoker == "no"]
+```
+
+#### F test to compare varainces
+```{r}
+var.test(smokers_charges, non_smokers_charges, alternative= "two.sided", conf.level= 0.95)
+```
+> As P value is less than alpha we can reject null hypothesis, From F test we can conclude that there is a statistically significant difference between the variances of the two samples.
+
+Assuming, </br>
+Null Hypothesis (H0) : Mean charges for smokers is equal to Mean charges for non smokers </br>
+Alternative Hypothesis (HA) : Mean charges for smokers is not equal to Mean charges for non smokers.
+
+
+```{r}
+t.test(smokers_charges, non_smokers_charges, var.equal = FALSE, conf.level = .95)
+```
+
+> As p value is less than alpha, we can reject null hypothesis. This implies that the mean of the charges for smokers is different from mean of charges for non smokers (Or) we can say difference in means is not equal to 0.
+
+### b) Linear Regression
+
+```{r}
+#fitting linear model 
+fitlm <- lm(charges~smoker, data =MCPclean )
+
+summary(fitlm)
+
+par(mfrow=c(2,2))
+plot(fitlm)
+
+
+# Convert categorical variables (sex, smoker, region) into factors
+MCPclean$sex <- as.factor(MCPclean$sex)
+MCPclean$smoker <- as.factor(MCPclean$smoker)
+MCPclean$region <- as.factor(MCPclean$region)
+```
+
+```{r}
+# Split the data into training and testing sets (80-20 split)
+set.seed(42)
+splitIndex <- sample(1:nrow(MCPclean), 0.8 * nrow(MCPclean))
+trainData <- MCPclean[splitIndex, ]
+testData <- MCPclean[-splitIndex, ]
+```
+
+
+```{r}
+# Train the linear regression model
+model <- lm(charges ~ ., data = trainData)
+```
+
+
+```{r}
+#summary of the model
+summary(model)
+```
+
+
+```{r}
+par(mfrow=c(2,2))
+plot(model)
+
+```
+
+
+```{r}
+pairs(trainData[,1:7], lower.panel = NULL)
+
+```
+
+
+```{r}
+# Predict on the test set
+predictions <- predict(model, newdata = testData)
+
+summary(predictions)
+
+# Evaluate the model
+mse <- mean((predictions - testData$charges)^2)
+cat("Mean Squared Error on Test Set:", mse, "\n")
+```
+
+
+```{r}
+summary(predictions)
+```
+
+
+```{r}
+# Feature Importance
+feature_importance <- coef(model)[-1]  # Exclude intercept
+feature_importance <- abs(feature_importance)
+feature_importance <- sort(feature_importance, decreasing = TRUE)
+```
+
+
+```{r}
+# Print feature importance
+cat("Feature Importance:\n")
+print(feature_importance)
+
+# Plot feature importance
+barplot(feature_importance, main = "Feature Importance", horiz = TRUE, cex.names = 0.8)
+```
+```{r}
+# Calculate Mean Squared Error (MSE) on the test set
+mse <- mean((predictions - testData$charges)^2)
+cat("Mean Squared Error on Test Set:", mse, "\n")
+```
+
+
+```{r}
+# Calculate Mean Absolute Error (MAE) on the test set
+mae <- mean(abs(predictions - testData$charges))
+cat("Mean Absolute Error on Test Set:", mae, "\n")
+```
+
+
+
+```{r}
+# Define the full model
+full_model <- lm(charges ~ ., data = trainData)
+
+# Forward Stepwise Regression
+empty_model <- lm(charges ~ 1, data = trainData)
+
+forward_model <- step(empty_model, direction = "forward", scope = formula(full_model))
+
+
+
+
+# Predict on the test set
+predictions_forward <- predict(forward_model, newdata = testData)
+
+# Calculate Mean Squared Error (MSE) on the test set
+mse_forward <- mean((predictions_forward - testData$charges)^2)
+cat("Mean Squared Error (Forward Stepwise):", mse_forward, "\n")
+
+```
+```{r}
+# Calculate Mean Absolute Error (MAE) on the test set
+mae_forward <- mean(abs(predictions_forward - testData$charges))
+cat("Mean Absolute Error(Forward Stepwise):", mae_forward, "\n")
+```
+
+```{r}
+summary(forward_model)
+```
+
+
+```{r}
+# Backward Stepwise Regression
+full_model <- lm(charges ~ ., data = trainData)
+
+backward_model <- step(full_model, direction = "backward")
+
+# Predict on the test set
+predictions_backward <- predict(backward_model, newdata = testData)
+
+# Calculate Mean Squared Error (MSE) on the test set
+mse_backward <- mean((predictions_backward - testData$charges)^2)
+cat("Mean Squared Error (Backward Stepwise):", mse_backward, "\n")
+
+```
+
+```{r}
+# Calculate Mean Absolute Error (MAE) on the test set
+mae_backward <- mean(abs(predictions_backward - testData$charges))
+cat("Mean Absolute Error(Backward Stepwise):", mae_backward, "\n")
+```
+
+
+```{r}
+# Load the necessary libraries
+library(corrplot)
+
+# Load the dataset
+#df <- read.csv('insurance.csv')
+
+# Convert categorical variables to factors
+MCPclean$sex <- as.factor(MCPclean$sex)
+MCPclean$smoker <- as.factor(MCPclean$smoker)
+MCPclean$region <- as.factor(MCPclean$region)
+
+# Convert factors to numeric
+MCPclean$sex <- as.numeric(MCPclean$sex)
+MCPclean$smoker <- as.numeric(MCPclean$smoker)
+MCPclean$region <- as.numeric(MCPclean$region)
+
+# Calculate the correlation matrix
+cor_matrix <- cor(MCPclean)
+
+
+# Draw the correlation matrix using corrplot
+corrplot(cor_matrix, method = "circle", type = "lower", order = "hclust", tl.col = "black", tl.srt = 45)
+
+```
+
+
+```{r}
+par(mfrow=c(1,3))
+boxplot(MCPclean$age, main="Age Boxplot", col="lightblue", border="black")
+boxplot(MCPclean$bmi, main="BMI Boxplot", col="lightgreen", border="black")
+boxplot(MCPclean$charges, main="Charges Boxplot", col="lightcoral", border="black")
+
+```
+
+
+```{r}
+library(corrplot)
+corrplot(cor(MCPclean), method="circle")
+
+```
+
+
+```{r}
+```
+
+
+
+
